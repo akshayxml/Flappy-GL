@@ -61,10 +61,10 @@ int main(){
     }
 
     glfwSetKeyCallback(window, processInput);
-    glfwSetCursorPosCallback(window, mouse_callback);
+    //glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
-    glEnable(GL_DEPTH_TEST);
+    //glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -108,10 +108,10 @@ int main(){
          1.0f,  1.0f, 0.7f,   1.0f, 1.0f,   // top right
          1.0f, -1.0f, 0.7f,   1.0f, 0.0f,   // bottom right
         -1.0f, -1.0f, 0.7f,   0.0f, 0.0f,   // bottom left
-        -1.0f,  1.10f, 0.7f,   0.0f, 1.0f    // top left 
+        -1.0f,  1.0f, 0.7f,   0.0f, 1.0f    // top left 
     };
 
-    unsigned int VBO, birdVAO, EBO, bgVAO, bgVBO, bgEBO;
+    unsigned int VBO, birdVAO, EBO, bgVAO;
 
     glGenVertexArrays(1, &birdVAO);
     glGenBuffers(1, &VBO);
@@ -137,15 +137,15 @@ int main(){
     glBindVertexArray(0);
 
     glGenVertexArrays(1, &bgVAO);
-    glGenBuffers(1, &bgVBO);
-    glGenBuffers(1, &bgEBO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
 
     glBindVertexArray(bgVAO);
 
-    glBindBuffer(GL_ARRAY_BUFFER, bgVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(bgVertices), bgVertices, GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bgEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
@@ -184,29 +184,14 @@ int main(){
             flyUp--;
         }
 
-        glm::mat4 view = camera.GetViewMatrix();
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, birdCurPos);
         birdShader.setMat4("model", model);
-        birdShader.setMat4("view", view);
-        birdShader.setMat4("projection", projection);
 
         bgShader.use();
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, bgTexture);
         glBindVertexArray(bgVAO);
-
-        view = camera.GetViewMatrix();
-        projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -1.0f));
-
-        bgShader.setMat4("model", model);
-        bgShader.setMat4("view", view);
-        bgShader.setMat4("projection", projection);
-
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         
         birdShader.use();
