@@ -19,6 +19,10 @@ void processInput(GLFWwindow* window, int key, int scancode, int action, int mod
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 unsigned int loadTexture(const char* fp);
+void play(Shader& bgShader, Shader& birdShader, glm::vec3& birdCurPos, glm::vec3& bgCurPos,
+    unsigned int& birdTexture, unsigned int& bgTexture, unsigned int& birdVAO, unsigned int& bgVAO);
+void gameOver(Shader& bgShader, Shader& birdShader, 
+    unsigned int& birdTexture, unsigned int& bgTexture, unsigned int& birdVAO, unsigned int& bgVAO);
 
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080; 
@@ -33,6 +37,7 @@ float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouseMovement = true;
 
 int flyUp = 0;
+int currentState = 1; //0 - Start menu, 1 - Playing, 2 - Game Over
 
 int main(){
     // glfw: initialize and configure
@@ -82,12 +87,13 @@ int main(){
 
     // texture setup
     unsigned int birdTexture = loadTexture("images/flappy.png");
-    unsigned int bgTexture = loadTexture("images/bg.png");
+    unsigned int bgTexture = loadTexture("images/city-bg_resized2.png");
+    unsigned int bg_bwTexture = loadTexture("images/city-bg_bw.png");
+    unsigned int bird_koTexture = loadTexture("images/flappy_ko.png");
 
     // set uniform values
     birdShader.use();
     glUniform1i(glGetUniformLocation(birdShader.ID, "birdTexture"), 0);
-
     bgShader.use();
     glUniform1i(glGetUniformLocation(bgShader.ID, "bgTexture"), 1);
 
@@ -105,8 +111,8 @@ int main(){
 
     float bgVertices[] = {
         // positions          // texture coords
-         1.0f,  1.0f, 0.7f,   1.0f, 1.0f,   // top right
-         1.0f, -1.0f, 0.7f,   1.0f, 0.0f,   // bottom right
+         3.0f,  1.0f, 0.7f,   1.0f, 1.0f,   // top right
+         3.0f, -1.0f, 0.7f,   1.0f, 0.0f,   // bottom right
         -1.0f, -1.0f, 0.7f,   0.0f, 0.0f,   // bottom left
         -1.0f,  1.0f, 0.7f,   0.0f, 1.0f    // top left 
     };
@@ -163,6 +169,7 @@ int main(){
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     glm::vec3 birdCurPos = glm::vec3(0.0f);
+    glm::vec3 bgCurPos = glm::vec3(0.0f);
 
     // render loop
     // -----------
@@ -176,30 +183,16 @@ int main(){
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        if (flyUp == 0) {
-            birdCurPos.y = glm::max((float)(birdCurPos.y - 0.005), -1.0f);
+        if (currentState == 1) {
+            play(bgShader, birdShader, birdCurPos, bgCurPos, birdTexture, bgTexture, birdVAO, bgVAO);
+            if (birdCurPos.y <= -0.77f) {
+                currentState = 2;
+            }
         }
-        else {
-            birdCurPos.y = glm::min((float)(birdCurPos.y + 0.01), 1.0f);
-            flyUp--;
+        else if (currentState == 2) {
+            gameOver(bgShader, birdShader, bird_koTexture, bg_bwTexture, birdVAO, bgVAO);
         }
-
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, birdCurPos);
-        birdShader.setMat4("model", model);
-
-        bgShader.use();
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, bgTexture);
-        glBindVertexArray(bgVAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         
-        birdShader.use();
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, birdTexture);
-        glBindVertexArray(birdVAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -231,6 +224,7 @@ void processInput(GLFWwindow* window, int key, int scancode, int action, int mod
     else if (key == GLFW_KEY_D && action != GLFW_RELEASE)
         camera.ProcessKeyboard(RIGHT, deltaTime);
 }
+
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     if (firstMouseMovement) {
@@ -289,4 +283,77 @@ unsigned int loadTexture(char const* path) {
     }
 
     return textureID;
+}
+
+void play(Shader &bgShader, Shader &birdShader, glm::vec3 &birdCurPos, glm::vec3 &bgCurPos,
+            unsigned int &birdTexture, unsigned int &bgTexture, unsigned int &birdVAO, unsigned int &bgVAO) {
+    if (flyUp == 0) {
+        birdCurPos.y = glm::max((float)(birdCurPos.y - 0.005), -0.77f);
+    }
+    else {
+        birdCurPos.y = glm::min((float)(birdCurPos.y + 0.01), 0.9f);
+        flyUp--;
+        if (birdCurPos.y == 0.9f)
+            flyUp = 0;
+    }
+
+    if (bgCurPos.x <= -4.0f) {
+        bgCurPos.x = 0.0f;
+    }
+
+    // BG
+    bgShader.use();
+
+    bgCurPos.x -= 0.001;
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, bgCurPos);
+    bgShader.setMat4("model", model);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, bgTexture);
+    glBindVertexArray(bgVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    glm::vec3 bgScrollPos = bgCurPos;
+    bgScrollPos.x = bgCurPos.x + 4.0f;
+    model = glm::translate(glm::mat4(1.0f), bgScrollPos);
+    bgShader.setMat4("model", model);
+
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    // Bird
+    birdShader.use();
+
+    model = glm::mat4(1.0f);
+    model = glm::translate(model, birdCurPos);
+    birdShader.setMat4("model", model);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, birdTexture);
+    glBindVertexArray(birdVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+}
+
+void gameOver(Shader& bgShader, Shader& birdShader,
+    unsigned int& birdTexture, unsigned int& bgTexture, unsigned int &birdVAO, unsigned int& bgVAO) {
+    bgShader.use();
+
+    glm::mat4 model = glm::mat4(1.0f);
+    bgShader.setMat4("model", model);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, bgTexture);
+    glBindVertexArray(bgVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    // Bird
+    birdShader.use();
+
+    model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(0.0f, -0.77f, 1.0f));;
+    birdShader.setMat4("model", model);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, birdTexture);
+    glBindVertexArray(birdVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
