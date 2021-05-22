@@ -3,26 +3,33 @@
 #include <stb_image.h>
 #include <shader.h>
 #include <camera.h>
+#include <vao.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <iostream>
+#include <stdlib.h>
 #include <fstream>
 #include <sstream>
 #include <streambuf>
 #include <string>
+#include <vector>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window, int key, int scancode, int action, int mods);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 unsigned int loadTexture(const char* fp);
-void play(Shader& bgShader, Shader& birdShader, glm::vec3& birdCurPos, glm::vec3& bgCurPos,
-    unsigned int& birdTexture, unsigned int& bgTexture, unsigned int& birdVAO, unsigned int& bgVAO);
+void play(Shader& bgShader, Shader& birdShader, Shader& pipeShader,
+    glm::vec3& birdCurPos, glm::vec3& bgCurPos, std::vector<glm::vec3>& pipeCurPos,
+    unsigned int& birdTexture, unsigned int& bgTexture, unsigned int& pipeTexture,
+    unsigned int& birdVAO, unsigned int& bgVAO, unsigned int& pipeVAO);
 void gameOver(Shader& bgShader, Shader& birdShader, 
     unsigned int& birdTexture, unsigned int& bgTexture, unsigned int& birdVAO, unsigned int& bgVAO);
+unsigned int getVAO(float positions[], unsigned int  indices[]);
+void generatePipes(Shader& pipeShader, std::vector<glm::vec3>& pipeCurPos, unsigned int& pipeTexture, unsigned int& pipeVAO);
 
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080; 
@@ -76,6 +83,7 @@ int main(){
     // build and compile our shader program
     Shader birdShader("shaders/bird.vs", "shaders/bird.fs");
     Shader bgShader("shaders/bg.vs", "shaders/bg.fs");
+    Shader pipeShader("shaders/pipe.vs", "shaders/pipe.fs");
 
     // allows key callback function to use the shaderProgram, as we are setting a pointer to it from window
     //glfwSetWindowUserPointer(window, &birdShader);
@@ -90,12 +98,15 @@ int main(){
     unsigned int bgTexture = loadTexture("images/city-bg_resized2.png");
     unsigned int bg_bwTexture = loadTexture("images/city-bg_bw.png");
     unsigned int bird_koTexture = loadTexture("images/flappy_ko.png");
+    unsigned int pipeTexture = loadTexture("images/pipe.png");
 
     // set uniform values
     birdShader.use();
     glUniform1i(glGetUniformLocation(birdShader.ID, "birdTexture"), 0);
     bgShader.use();
     glUniform1i(glGetUniformLocation(bgShader.ID, "bgTexture"), 1);
+    pipeShader.use();
+    glUniform1i(glGetUniformLocation(pipeShader.ID, "pipeTexture"), 2);
 
     float birdVertices[] = {
         // positions          // texture coords
@@ -104,11 +115,7 @@ int main(){
         -0.06f, -0.10f, 0.0f,   0.0f, 0.0f,   // bottom left
         -0.06f,  0.10f, 0.0f,   0.0f, 1.0f    // top left 
     };
-    unsigned int quadIndices[] = { 
-        0, 1, 3,
-        1, 2, 3  
-    };
-
+    
     float bgVertices[] = {
         // positions          // texture coords
          3.0f,  1.0f, 0.7f,   1.0f, 1.0f,   // top right
@@ -117,59 +124,27 @@ int main(){
         -1.0f,  1.0f, 0.7f,   0.0f, 1.0f    // top left 
     };
 
-    unsigned int VBO, birdVAO, EBO, bgVAO;
+    float pipeVertices[] = {
+        // positions          // texture coords
+         0.1f,  0.5f, 0.7f,   1.0f, 1.0f,   // top right
+         0.1f, -0.5f, 0.7f,   1.0f, 0.0f,   // bottom right
+        -0.1f, -0.5f, 0.7f,   0.0f, 0.0f,   // bottom left
+        -0.1f,  0.5f, 0.7f,   0.0f, 1.0f    // top left 
+    };
 
-    glGenVertexArrays(1, &birdVAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
+    unsigned int quadIndices[] = {
+        0, 1, 3,
+        1, 2, 3
+    };
 
-    glBindVertexArray(birdVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(birdVertices), birdVertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glBindVertexArray(0);
-
-    glGenVertexArrays(1, &bgVAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    glBindVertexArray(bgVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(bgVertices), bgVertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glBindVertexArray(0);
-
-    // uncomment this call to draw in wireframe polygons.
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
+    Vao birdVAO(birdVertices, quadIndices, sizeof(birdVertices), sizeof(quadIndices));
+    Vao bgVAO(bgVertices, quadIndices, sizeof(bgVertices), sizeof(quadIndices));
+    Vao pipeVAO(pipeVertices, quadIndices, sizeof(pipeVertices), sizeof(quadIndices));
+    
     glm::vec3 birdCurPos = glm::vec3(0.0f);
     glm::vec3 bgCurPos = glm::vec3(0.0f);
+    std::vector<glm::vec3> pipeCurPos = { glm::vec3(0.5f, 0.0f, 0.0f), glm::vec3(1.0f), glm::vec3(1.5f, 0.0f, 0.0f), glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(2.5f, 0.0f, 0.0f),
+                                          glm::vec3(3.0f), glm::vec3(3.5f, 0.0f, 0.0f), glm::vec3(4.0f, 0.0f, 0.0f) };
 
     // render loop
     // -----------
@@ -184,23 +159,23 @@ int main(){
         lastFrame = currentFrame;
 
         if (currentState == 1) {
-            play(bgShader, birdShader, birdCurPos, bgCurPos, birdTexture, bgTexture, birdVAO, bgVAO);
+            play(bgShader, birdShader, pipeShader, birdCurPos, bgCurPos, pipeCurPos, birdTexture, 
+                bgTexture, pipeTexture, birdVAO.VAO, bgVAO.VAO, pipeVAO.VAO);
             if (birdCurPos.y <= -0.77f) {
                 currentState = 2;
             }
         }
         else if (currentState == 2) {
-            gameOver(bgShader, birdShader, bird_koTexture, bg_bwTexture, birdVAO, bgVAO);
+            gameOver(bgShader, birdShader, bird_koTexture, bg_bwTexture, birdVAO.VAO, bgVAO.VAO);
         }
         
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    glDeleteVertexArrays(1, &birdVAO);
-    glDeleteVertexArrays(1, &bgVAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
+    glDeleteVertexArrays(1, &birdVAO.VAO);
+    glDeleteVertexArrays(1, &bgVAO.VAO);
+    glDeleteVertexArrays(1, &pipeVAO.VAO);
 
     glfwTerminate();
     return 0;
@@ -285,8 +260,10 @@ unsigned int loadTexture(char const* path) {
     return textureID;
 }
 
-void play(Shader &bgShader, Shader &birdShader, glm::vec3 &birdCurPos, glm::vec3 &bgCurPos,
-            unsigned int &birdTexture, unsigned int &bgTexture, unsigned int &birdVAO, unsigned int &bgVAO) {
+void play(Shader &bgShader, Shader &birdShader, Shader& pipeShader, 
+            glm::vec3 &birdCurPos, glm::vec3 &bgCurPos, std::vector<glm::vec3>& pipeCurPos,
+            unsigned int &birdTexture, unsigned int &bgTexture, unsigned int& pipeTexture, 
+            unsigned int &birdVAO, unsigned int &bgVAO, unsigned int& pipeVAO) {
     if (flyUp == 0) {
         birdCurPos.y = glm::max((float)(birdCurPos.y - 0.005), -0.77f);
     }
@@ -320,6 +297,7 @@ void play(Shader &bgShader, Shader &birdShader, glm::vec3 &birdCurPos, glm::vec3
     bgShader.setMat4("model", model);
 
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
     // Bird
     birdShader.use();
 
@@ -331,6 +309,9 @@ void play(Shader &bgShader, Shader &birdShader, glm::vec3 &birdCurPos, glm::vec3
     glBindTexture(GL_TEXTURE_2D, birdTexture);
     glBindVertexArray(birdVAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    // Pipes
+    generatePipes(pipeShader, pipeCurPos, pipeTexture, pipeVAO);
 }
 
 void gameOver(Shader& bgShader, Shader& birdShader,
@@ -356,4 +337,36 @@ void gameOver(Shader& bgShader, Shader& birdShader,
     glBindTexture(GL_TEXTURE_2D, birdTexture);
     glBindVertexArray(birdVAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+}
+
+
+void generatePipes(Shader& pipeShader, std::vector<glm::vec3>& pipeCurPos, unsigned int& pipeTexture, unsigned int & pipeVAO) {
+    for (auto& curPos : pipeCurPos) {
+        if (curPos.x <= -3.0f)
+            curPos.x = 1.0f;
+
+        pipeShader.use(); 
+        if (curPos.x >= 1.0f) {
+            curPos.y = (rand() % 100 + 50) / 100.0f;
+        }
+        curPos.x -= 0.001;
+        
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.4f + curPos.x, -curPos.y, 0.0f));
+        pipeShader.setMat4("model", model);
+
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, pipeTexture);
+        glBindVertexArray(pipeVAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        model = glm::mat4(1.0f);
+        model = glm::scale(model, glm::vec3(1.0f, -1.0f, 1.0f));
+        model = glm::translate(model, glm::vec3(0.4f + curPos.x, -1.5f + curPos.y, 0.0f));
+        pipeShader.setMat4("model", model);
+
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    }
+        
+    
 }
