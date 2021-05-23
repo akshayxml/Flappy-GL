@@ -45,6 +45,12 @@ bool firstMouseMovement = true;
 
 int flyUp = 0;
 int currentState = 1; //0 - Start menu, 1 - Playing, 2 - Game Over
+float GAME_SPEED = 0.002;
+
+glm::vec3 birdCurPos = glm::vec3(0.0f);
+glm::vec3 bgCurPos = glm::vec3(0.0f);
+std::vector<glm::vec3> pipeCurPos = { glm::vec3(1.5f, 0.0f, 0.0f), glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(2.5f, 0.0f, 0.0f), glm::vec3(3.0f),
+                                glm::vec3(3.5f, 0.0f, 0.0f), glm::vec3(4.0f, 0.0f, 0.0f), glm::vec3(4.5f, 0.0f, 0.0f), glm::vec3(5.0f, 0.0f, 0.0f) };
 
 int main(){
     // glfw: initialize and configure
@@ -141,11 +147,7 @@ int main(){
     Vao bgVAO(bgVertices, quadIndices, sizeof(bgVertices), sizeof(quadIndices));
     Vao pipeVAO(pipeVertices, quadIndices, sizeof(pipeVertices), sizeof(quadIndices));
     
-    glm::vec3 birdCurPos = glm::vec3(0.0f);
-    glm::vec3 bgCurPos = glm::vec3(0.0f);
-    std::vector<glm::vec3> pipeCurPos = { glm::vec3(0.5f, 0.0f, 0.0f), glm::vec3(1.0f), glm::vec3(1.5f, 0.0f, 0.0f), glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(2.5f, 0.0f, 0.0f),
-                                          glm::vec3(3.0f), glm::vec3(3.5f, 0.0f, 0.0f), glm::vec3(4.0f, 0.0f, 0.0f) };
-
+    
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window)){
@@ -162,7 +164,19 @@ int main(){
             play(bgShader, birdShader, pipeShader, birdCurPos, bgCurPos, pipeCurPos, birdTexture, 
                 bgTexture, pipeTexture, birdVAO.VAO, bgVAO.VAO, pipeVAO.VAO);
             if (birdCurPos.y <= -0.77f) {
-                currentState = 2;
+                currentState = 1;
+            }
+            else {
+                float by = birdCurPos.y;
+                for (int i = 0; i < pipeCurPos.size(); i++) {
+                    float px = pipeCurPos[i].x;
+                    float py = pipeCurPos[i].y;
+                    if (abs(px - 0.0f) > 0.1f )
+                        continue;
+                   if ( by + py < 0.6f || by + py > 0.9f) {
+                       currentState = 2;
+                   }
+                }
             }
         }
         else if (currentState == 2) {
@@ -188,7 +202,14 @@ void processInput(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     else if (key == GLFW_KEY_SPACE && action != GLFW_RELEASE) {
-        flyUp += 40;
+        flyUp += 25;
+        if (currentState == 2) {
+            birdCurPos = glm::vec3(0.0f);
+            bgCurPos = glm::vec3(0.0f);
+            pipeCurPos = { glm::vec3(1.5f, 0.0f, 0.0f), glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(2.5f, 0.0f, 0.0f), glm::vec3(3.0f),
+                           glm::vec3(3.5f, 0.0f, 0.0f), glm::vec3(4.0f, 0.0f, 0.0f)};
+            currentState = 1;
+        }
     }
     else if (key == GLFW_KEY_W && action != GLFW_RELEASE)
         camera.ProcessKeyboard(FORWARD, deltaTime);
@@ -281,7 +302,7 @@ void play(Shader &bgShader, Shader &birdShader, Shader& pipeShader,
     // BG
     bgShader.use();
 
-    bgCurPos.x -= 0.001;
+    bgCurPos.x -= GAME_SPEED;
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, bgCurPos);
     bgShader.setMat4("model", model);
@@ -300,7 +321,7 @@ void play(Shader &bgShader, Shader &birdShader, Shader& pipeShader,
 
     // Bird
     birdShader.use();
-
+    //birdCurPos.y = 0.1f;
     model = glm::mat4(1.0f);
     model = glm::translate(model, birdCurPos);
     birdShader.setMat4("model", model);
@@ -339,20 +360,20 @@ void gameOver(Shader& bgShader, Shader& birdShader,
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-
 void generatePipes(Shader& pipeShader, std::vector<glm::vec3>& pipeCurPos, unsigned int& pipeTexture, unsigned int & pipeVAO) {
     for (auto& curPos : pipeCurPos) {
-        if (curPos.x <= -3.0f)
-            curPos.x = 1.0f;
+        if (curPos.x <= -2.5f)
+            curPos.x = 1.5f;
 
         pipeShader.use(); 
-        if (curPos.x >= 1.0f) {
-            curPos.y = (rand() % 100 + 50) / 100.0f;
+
+        if (curPos.x >= 1.5f and curPos.x <= 1.55f) {
+           curPos.y = (rand() % 50 + 50) / 100.0f;
         }
-        curPos.x -= 0.001;
+        curPos.x -= GAME_SPEED;
         
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.4f + curPos.x, -curPos.y, 0.0f));
+        model = glm::translate(model, glm::vec3(curPos.x, -curPos.y, 0.0f));
         pipeShader.setMat4("model", model);
 
         glActiveTexture(GL_TEXTURE2);
@@ -362,11 +383,14 @@ void generatePipes(Shader& pipeShader, std::vector<glm::vec3>& pipeCurPos, unsig
 
         model = glm::mat4(1.0f);
         model = glm::scale(model, glm::vec3(1.0f, -1.0f, 1.0f));
-        model = glm::translate(model, glm::vec3(0.4f + curPos.x, -1.5f + curPos.y, 0.0f));
+        model = glm::translate(model, glm::vec3(curPos.x, -1.5f + curPos.y, 0.0f));
         pipeShader.setMat4("model", model);
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     }
-        
-    
+           
+}
+
+bool checkCollision() {
+    return false;
 }
