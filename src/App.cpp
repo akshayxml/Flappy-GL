@@ -1,14 +1,15 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <textRenderer.h>
 #include <shader.h>
 #include <camera.h>
 #include <vao.h>
 #include <game.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include <iostream>
 #include <stdlib.h>
@@ -32,8 +33,6 @@ void gameOver(Shader& bgShader, Shader& birdShader,
 unsigned int getVAO(float positions[], unsigned int  indices[]);
 void generatePipes(Shader& pipeShader, std::vector<glm::vec3>& pipeCurPos, unsigned int& pipeTexture, unsigned int& pipeVAO);
 
-const unsigned int SCR_WIDTH = 1920;
-const unsigned int SCR_HEIGHT = 1080; 
 float current_opacity = 0.0;
 float deltaTime = 0.0f;	// Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
@@ -81,7 +80,7 @@ int main(){
 
     glfwSetKeyCallback(window, processInput);
     //glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
+    //glfwSetScrollCallback(window, scroll_callback);
 
     //glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -91,9 +90,6 @@ int main(){
     Shader birdShader("shaders/bird.vs", "shaders/bird.fs");
     Shader bgShader("shaders/bg.vs", "shaders/bg.fs");
     Shader pipeShader("shaders/pipe.vs", "shaders/pipe.fs");
-
-    // allows key callback function to use the shaderProgram, as we are setting a pointer to it from window
-    //glfwSetWindowUserPointer(window, &birdShader);
 
     // removes mouse cursor
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -125,10 +121,10 @@ int main(){
     
     float bgVertices[] = {
         // positions          // texture coords
-         3.0f,  1.0f, 0.7f,   1.0f, 1.0f,   // top right
-         3.0f, -1.0f, 0.7f,   1.0f, 0.0f,   // bottom right
-        -1.0f, -1.0f, 0.7f,   0.0f, 0.0f,   // bottom left
-        -1.0f,  1.0f, 0.7f,   0.0f, 1.0f    // top left 
+         3.0f,  1.0f, -1.0f,   1.0f, 1.0f,   // top right
+         3.0f, -1.0f, -1.0f,   1.0f, 0.0f,   // bottom right
+        -1.0f, -1.0f, -1.0f,   0.0f, 0.0f,   // bottom left
+        -1.0f,  1.0f, -1.0f,   0.0f, 1.0f    // top left 
     };
 
     float pipeVertices[] = {
@@ -149,6 +145,9 @@ int main(){
     Vao pipeVAO(pipeVertices, quadIndices, sizeof(pipeVertices), sizeof(quadIndices));
     
     Game game(birdShader.ID, bgShader.ID, pipeShader.ID, birdTexture, bird_koTexture, bgTexture, bg_koTexture, pipeTexture, birdVAO.VAO, bgVAO.VAO, pipeVAO.VAO);
+    game.init();
+
+    TextRenderer textRenderer("fonts/blocks.ttf", 0, 48);
 
     glfwSetWindowUserPointer(window, &game);
     // render loop
@@ -164,7 +163,9 @@ int main(){
         lastFrame = currentFrame;
 
         game.run();
-        
+
+        textRenderer.RenderText("Score: " + std::to_string(game.getScore()), 25.0f, 1000.0f, 1.0f, glm::vec3(0.8, 0.2f, 0.4f));
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -186,12 +187,9 @@ void processInput(GLFWwindow* window, int key, int scancode, int action, int mod
     else if (key == GLFW_KEY_SPACE && action != GLFW_RELEASE) {
         Game* game = static_cast<Game*>(glfwGetWindowUserPointer(window));
         game->flyUpCount += 25;
-        if (currentState == 2) {
-            birdCurPos = glm::vec3(0.0f);
-            bgCurPos = glm::vec3(0.0f);
-            pipeCurPos = { glm::vec3(1.5f, 0.0f, 0.0f), glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(2.5f, 0.0f, 0.0f), glm::vec3(3.0f),
-                           glm::vec3(3.5f, 0.0f, 0.0f), glm::vec3(4.0f, 0.0f, 0.0f)};
-            currentState = 1;
+        if (game->curGameState == GAME_OVER) {
+            game->init();
+            game->curGameState = PLAYING;
         }
     }
     else if (key == GLFW_KEY_W && action != GLFW_RELEASE)

@@ -13,11 +13,10 @@ enum GameStates { MENU, PLAYING, GAME_OVER };
 
 class Game {
 	float GAME_SPEED;
-	unsigned int birdTexture, bird_koTexture, bgTexture, bg_koTexture, pipeTexture, birdVAO, bgVAO, pipeVAO;
+	unsigned int birdTexture, bird_koTexture, bgTexture, bg_koTexture, pipeTexture, birdVAO, bgVAO, pipeVAO, score;
 	glm::vec3 birdCurPos;
 	glm::vec3 bgCurPos;
 	std::vector<glm::vec3> pipeCurPos;
-	GameStates curGameState;
 
 	void play(){
 		if (flyUpCount == 0) {
@@ -105,6 +104,21 @@ class Game {
 		}
 	}
 
+	bool checkCollision() {
+		float by = birdCurPos.y;
+		for (int i = 0; i < pipeCurPos.size(); i++) {
+			float px = pipeCurPos[i].x;
+			float py = pipeCurPos[i].y;
+			if (abs(px - 0.0f) > 0.1f)
+				continue;
+			if (by + py < 0.6f || by + py > 0.9f) {
+				return true;
+			}
+			score += 1;
+		}
+		return false;
+	}
+
 	void gameOver() {
 		bgShader.use();
 
@@ -132,14 +146,13 @@ class Game {
 	public:
 		Shader bgShader, birdShader, pipeShader;
 		unsigned int flyUpCount;
+		GameStates curGameState;
 
 		Game(unsigned int birdShaderID, unsigned int bgShaderID, unsigned int pipeShaderID,
 			unsigned int birdTexture, unsigned int bird_koTexture, unsigned int bgTexture, unsigned int bg_koTexture, unsigned int pipeTexture,
 			unsigned int birdVAO, unsigned int bgVAO, unsigned int pipeVAO) 
-			: GAME_SPEED(0.002), flyUpCount(0), birdCurPos(glm::vec3(0.0f)), bgCurPos(glm::vec3(0.0f)) {
+			: GAME_SPEED(0.002){
 			
-			pipeCurPos = { glm::vec3(1.5f, 0.0f, 0.0f), glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(2.5f, 0.0f, 0.0f), glm::vec3(3.0f),
-											glm::vec3(3.5f, 0.0f, 0.0f), glm::vec3(4.0f, 0.0f, 0.0f), glm::vec3(4.5f, 0.0f, 0.0f), glm::vec3(5.0f, 0.0f, 0.0f) };
 			curGameState = PLAYING;
 			this->bgShader.SetID(bgShaderID);
 			this->birdShader.SetID(birdShaderID);
@@ -154,34 +167,33 @@ class Game {
 			this->pipeVAO = pipeVAO;
 		}
 
-		void run();
-};
-
-void Game::run() {
-	if (curGameState == MENU) {
-		std::cout << "menuu";
-	}
-	else if (curGameState == PLAYING) {
-		play();
-		if (birdCurPos.y <= -0.77f) {
-			curGameState = GAME_OVER;
+		void init() {
+			birdCurPos = glm::vec3(0.0f);
+			bgCurPos = glm::vec3(0.0f);
+			pipeCurPos = { glm::vec3(1.5f, 0.0f, 0.0f), glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(2.5f, 0.0f, 0.0f), glm::vec3(3.0f),
+											glm::vec3(3.5f, 0.0f, 0.0f), glm::vec3(4.0f, 0.0f, 0.0f), glm::vec3(4.5f, 0.0f, 0.0f), glm::vec3(5.0f, 0.0f, 0.0f) };
+			flyUpCount = 0;
+			score = 0;
 		}
-		else {
-			float by = birdCurPos.y;
-			for (int i = 0; i < pipeCurPos.size(); i++) {
-				float px = pipeCurPos[i].x;
-				float py = pipeCurPos[i].y;
-				if (abs(px - 0.0f) > 0.1f)
-					continue;
-				if (by + py < 0.6f || by + py > 0.9f) {
+
+		void run() {
+			if (curGameState == MENU) {
+				std::cout << "menu";
+			}
+			else if (curGameState == PLAYING) {
+				play();
+				if (birdCurPos.y <= -0.77f || checkCollision()) {
 					curGameState = GAME_OVER;
 				}
 			}
+			else if (curGameState == GAME_OVER) {
+				gameOver();
+			}
 		}
-	}
-	else if (curGameState == GAME_OVER) {
-		gameOver();
-	}
-}
+
+		int getScore() {
+			return this->score / 100;
+		}
+};
 
 #endif
