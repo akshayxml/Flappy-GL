@@ -96,6 +96,15 @@ public:
             glDeleteShader(geometry);
 
     }
+    Shader(const Shader& cp) {
+        ID = cp.ID;
+    }
+    Shader() {
+        ID = 0;
+    }
+    void SetID(unsigned id) {
+        this->ID = id;
+    }
     // activate the shader
     // ------------------------------------------------------------------------
     void use()

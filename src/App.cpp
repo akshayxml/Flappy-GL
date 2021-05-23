@@ -4,6 +4,7 @@
 #include <shader.h>
 #include <camera.h>
 #include <vao.h>
+#include <game.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -102,7 +103,7 @@ int main(){
     // texture setup
     unsigned int birdTexture = loadTexture("images/flappy.png");
     unsigned int bgTexture = loadTexture("images/city-bg_resized2.png");
-    unsigned int bg_bwTexture = loadTexture("images/city-bg_bw.png");
+    unsigned int bg_koTexture = loadTexture("images/city-bg_bw.png");
     unsigned int bird_koTexture = loadTexture("images/flappy_ko.png");
     unsigned int pipeTexture = loadTexture("images/pipe.png");
 
@@ -147,7 +148,9 @@ int main(){
     Vao bgVAO(bgVertices, quadIndices, sizeof(bgVertices), sizeof(quadIndices));
     Vao pipeVAO(pipeVertices, quadIndices, sizeof(pipeVertices), sizeof(quadIndices));
     
-    
+    Game game(birdShader.ID, bgShader.ID, pipeShader.ID, birdTexture, bird_koTexture, bgTexture, bg_koTexture, pipeTexture, birdVAO.VAO, bgVAO.VAO, pipeVAO.VAO);
+
+    glfwSetWindowUserPointer(window, &game);
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window)){
@@ -160,28 +163,7 @@ int main(){
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        if (currentState == 1) {
-            play(bgShader, birdShader, pipeShader, birdCurPos, bgCurPos, pipeCurPos, birdTexture, 
-                bgTexture, pipeTexture, birdVAO.VAO, bgVAO.VAO, pipeVAO.VAO);
-            if (birdCurPos.y <= -0.77f) {
-                currentState = 1;
-            }
-            else {
-                float by = birdCurPos.y;
-                for (int i = 0; i < pipeCurPos.size(); i++) {
-                    float px = pipeCurPos[i].x;
-                    float py = pipeCurPos[i].y;
-                    if (abs(px - 0.0f) > 0.1f )
-                        continue;
-                   if ( by + py < 0.6f || by + py > 0.9f) {
-                       currentState = 2;
-                   }
-                }
-            }
-        }
-        else if (currentState == 2) {
-            gameOver(bgShader, birdShader, bird_koTexture, bg_bwTexture, birdVAO.VAO, bgVAO.VAO);
-        }
+        game.run();
         
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -202,7 +184,8 @@ void processInput(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     else if (key == GLFW_KEY_SPACE && action != GLFW_RELEASE) {
-        flyUp += 25;
+        Game* game = static_cast<Game*>(glfwGetWindowUserPointer(window));
+        game->flyUpCount += 25;
         if (currentState == 2) {
             birdCurPos = glm::vec3(0.0f);
             bgCurPos = glm::vec3(0.0f);
