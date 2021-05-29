@@ -7,7 +7,6 @@
 
 #include <textRenderer.h>
 #include <shader.h>
-#include <camera.h>
 #include <vao.h>
 #include <game.h>
 
@@ -21,19 +20,11 @@
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window, int key, int scancode, int action, int mods);
-void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 unsigned int loadTexture(const char* fp);
 
 float current_opacity = 0.0;
 float deltaTime = 0.0f;	// Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
-
-// camera
-Camera camera(glm::vec3(0.0f, 0.0f, 2.0f));
-float lastX = SCR_WIDTH / 2.0f;
-float lastY = SCR_HEIGHT / 2.0f;
-bool firstMouseMovement = true;
 
 int flyUp = 0;
 int currentState = 1; //0 - Start menu, 1 - Playing, 2 - Game Over
@@ -45,15 +36,11 @@ std::vector<glm::vec3> pipeCurPos = { glm::vec3(1.5f, 0.0f, 0.0f), glm::vec3(2.0
                                 glm::vec3(3.5f, 0.0f, 0.0f), glm::vec3(4.0f, 0.0f, 0.0f), glm::vec3(4.5f, 0.0f, 0.0f), glm::vec3(5.0f, 0.0f, 0.0f) };
 
 int main(){
-    // glfw: initialize and configure
-    // ------------------------------
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    // glfw window creation
-    // --------------------
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", glfwGetPrimaryMonitor(), NULL);
     if (window == NULL){
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -63,32 +50,24 @@ int main(){
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    // glad: load all OpenGL function pointers
-    // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
 
     glfwSetKeyCallback(window, processInput);
-    //glfwSetCursorPosCallback(window, mouse_callback);
-    //glfwSetScrollCallback(window, scroll_callback);
 
-    //glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // build and compile our shader program
     Shader birdShader("shaders/bird.vs", "shaders/bird.fs");
     Shader bgShader("shaders/bg.vs", "shaders/bg.fs");
     Shader pipeShader("shaders/pipe.vs", "shaders/pipe.fs");
 
-    //removes mouse cursor
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     stbi_set_flip_vertically_on_load(true);
 
-    // texture setup
     unsigned int birdTexture = loadTexture("images/flappy.png");
     unsigned int bgTexture = loadTexture("images/city-bg-long.png");
     unsigned int bg_koTexture = loadTexture("images/city-bg_bw.png");
@@ -99,7 +78,6 @@ int main(){
     unsigned int bird_DownTexture = loadTexture("images/flappy_down.png");
     unsigned int pipeTexture = loadTexture("images/pipe.png");
 
-    // set uniform values
     birdShader.use();
     glUniform1i(glGetUniformLocation(birdShader.ID, "birdTexture"), 0);
     bgShader.use();
@@ -149,11 +127,7 @@ int main(){
     glfwSetWindowUserPointer(window, &game);
     TextRenderer textRenderer("fonts/blocks.ttf", "shaders/text.vs", "shaders/text.fs", 0, 48);
 
-    // render loop
-    // -----------
     while (!glfwWindowShouldClose(window)){
-        // render
-        // ------
         glClearColor(0.2f, 0.3f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
