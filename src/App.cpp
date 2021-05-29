@@ -147,6 +147,7 @@ int main(){
     game.init();
 
     glfwSetWindowUserPointer(window, &game);
+    TextRenderer textRenderer("fonts/blocks.ttf", "shaders/text.vs", "shaders/text.fs", 0, 48);
 
     // render loop
     // -----------
@@ -160,9 +161,8 @@ int main(){
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        game.run();
+        game.run(deltaTime);
 
-        TextRenderer textRenderer("fonts/blocks.ttf", "shaders/text.vs", "shaders/text.fs", 0, 48);
         textRenderer.RenderText("Score: " + std::to_string(game.getScore()), 25.0f, 1000.0f, 1.0f, glm::vec3(0.8, 0.2f, 0.4f));
 
         glfwSwapBuffers(window);
@@ -177,20 +177,13 @@ int main(){
     return 0;
 }
 
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window, int key, int scancode, int action, int mods){
-    float cameraSpeed = 10.0f * deltaTime;
     Game* game = static_cast<Game*>(glfwGetWindowUserPointer(window));
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     else if (key == GLFW_KEY_SPACE && action != GLFW_RELEASE) {
         game->fallPoint = game->birdCurPos.y;
         game->flyUpCount += 25;
-        if (game->curGameState == GAME_OVER) {
-            game->init();
-            game->curGameState = PLAYING;
-        }
     }
     else if (key == GLFW_KEY_RIGHT && action != GLFW_RELEASE) {
         if (game->curGameState == MENU) {
@@ -214,31 +207,12 @@ void processInput(GLFWwindow* window, int key, int scancode, int action, int mod
                 glfwSetWindowShouldClose(window, true);
             }
         }
+        else if(game->curGameState == GAME_OVER) {
+            game->init();
+        }
     }
 }
 
-
-void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
-    if (firstMouseMovement) {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouseMovement = false;
-    }
-
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos;
-    lastX = xpos;
-    lastY = ypos;
-
-    camera.ProcessMouseMovement(xoffset, yoffset);
-}
-
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-    camera.ProcessMouseScroll(yoffset);
-}
-
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height){
     glViewport(0, 0, width, height);
 }

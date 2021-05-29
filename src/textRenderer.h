@@ -32,7 +32,7 @@ class TextRenderer {
     Shader shader;
     std::map<char, Character> Characters;
     unsigned int VAO, VBO;
-
+    
 	public:
         TextRenderer(std::string fontPath, std::string vertexShader, std::string fragmentShader, int fontHeight, int fontWidth = 0) {
             
@@ -105,6 +105,17 @@ class TextRenderer {
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glBindVertexArray(0);
         }
+
+        TextRenderer(const TextRenderer& cp) {
+            this->ft = cp.ft;
+            this->face = cp.face;
+            this->shader = cp.shader;
+            this->Characters = cp.Characters;
+            this->VAO = cp.VAO;
+            this->VBO = cp.VBO;
+        }
+
+        TextRenderer() {};
         
         void RenderText(std::string text, float x, float y, float scale, glm::vec3 color){
 

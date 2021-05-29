@@ -18,25 +18,23 @@ class Game {
 					menuBgTexture, pipeTexture, birdVAO, bgVAO, pipeVAO, score, currentPipe;
 	glm::vec3 bgCurPos;
 	std::vector<glm::vec3> pipeCurPos;
+	float deltaTime;
+	TextRenderer menuFont, novaFont;
 
 	void play(){
-
-		if (bgCurPos.x <= -4.0f) {
-			bgCurPos.x = 0.0f;
-		}
-
 		generateBG();
-
 		generateBird();
-		
 		generatePipes();
 	}
 
 	void generateBG(bool move = true) {
+		if (bgCurPos.x <= -4.0f) {
+			bgCurPos.x = 0.0f;
+		}
 		bgShader.use();
 
 		if(move)
-			bgCurPos.x -= GAME_SPEED;
+			bgCurPos.x = bgCurPos.x - (GAME_SPEED * deltaTime);
 		glm::mat4 model = glm::mat4(1.0f);
 		model = glm::translate(model, bgCurPos);
 		bgShader.setMat4("model", model);
@@ -57,7 +55,7 @@ class Game {
 	void generateBird() {
 		glm::mat4 model = glm::mat4(1.0f);
 		if (flyUpCount == 0) {
-			birdCurPos.y = glm::max((float)(birdCurPos.y - 0.002), -0.77f);
+			birdCurPos.y = glm::max((float)(birdCurPos.y - deltaTime), -0.77f);
 			birdShader.use();
 
 			model = glm::translate(model, birdCurPos);
@@ -72,7 +70,7 @@ class Game {
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		}
 		else {
-			birdCurPos.y = glm::min((float)(birdCurPos.y + 0.01), 0.9f);
+			birdCurPos.y = glm::min((float)(birdCurPos.y + (5*deltaTime)), 0.9f);
 			flyUpCount--;
 			if (birdCurPos.y == 0.9f)
 				flyUpCount = 0;
@@ -99,7 +97,7 @@ class Game {
 				curPos.y = (rand() % 50 + 50) / 100.0f;
 			}
 			if(move)
-				curPos.x -= GAME_SPEED;
+				curPos.x = curPos.x -(GAME_SPEED * deltaTime);
 
 			glm::mat4 model = glm::mat4(1.0f);
 			model = glm::translate(model, glm::vec3(curPos.x, -curPos.y, 0.0f));
@@ -124,7 +122,7 @@ class Game {
 		for (int i = 0; i < pipeCurPos.size(); i++) {
 			float px = pipeCurPos[i].x;
 			float py = pipeCurPos[i].y;
-			if (currentPipe % 4 == i and px < -0.1f) {
+			if (currentPipe % pipeCurPos.size() == i and px < -0.1f and px > -1.0f) {
 				score++;
 				currentPipe++;
 			}
@@ -139,7 +137,7 @@ class Game {
 
 	void gameOver() {
 		glm::mat4 model = glm::mat4(1.0f);
-		birdCurPos.y = glm::max((float)(birdCurPos.y - 0.005), -0.77f);
+		birdCurPos.y = glm::max((float)(birdCurPos.y - (1.5*deltaTime)), -0.77f);
 
 		if (birdCurPos.y <= -0.77f) {
 			bgShader.use();
@@ -163,6 +161,9 @@ class Game {
 			glBindTexture(GL_TEXTURE_2D, bird_koTexture);
 			glBindVertexArray(birdVAO);
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+			menuFont.RenderText("GAME OVER", 875.0f, 825.0f, 1.0f, glm::vec3(1.0f));
+			menuFont.RenderText("OK", 925.0f, 525.0f, 1.5f, glm::vec3(0.0f));
 		}
 		else {
 			generateBG(false);
@@ -180,7 +181,6 @@ class Game {
 	}
 
 	void showMenu() {
-		TextRenderer menuFont("fonts/peligroso.otf", "shaders/text.vs", "shaders/text.fs", 0, 48);
 		bgShader.use();
 
 		glm::mat4 model = glm::mat4(1.0f);
@@ -209,8 +209,6 @@ class Game {
 	}
 
 	void showHelp() {
-		TextRenderer menuFont("fonts/peligroso.otf", "shaders/text.vs", "shaders/text.fs", 0, 48);
-		TextRenderer novaFont("fonts/nova.otf", "shaders/text.vs", "shaders/text.fs", 0, 48);
 		bgShader.use();
 
 		glm::mat4 model = glm::mat4(1.0f);
@@ -222,7 +220,7 @@ class Game {
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 		novaFont.RenderText("Just Tap to Fly!", 825.0f, 125.0f, 1.0f, glm::vec3(0.0f));
-		menuFont.RenderText("Take me Back", 825.0f, 100.0f, 1.0f, glm::vec3(0.0f));
+		menuFont.RenderText("Take me Back", 825.0f, 75.0f, 1.0f, glm::vec3(0.0f));
 	}
 
 	public:
@@ -237,7 +235,7 @@ class Game {
 			unsigned int birdTexture, unsigned int bird_koTexture, unsigned int bird_45DownTexture, unsigned int bird_DownTexture,
 			unsigned int bgTexture, unsigned int bg_koTexture, unsigned int menuBgTexture, unsigned int pipeTexture,
 			unsigned int birdVAO, unsigned int bgVAO, unsigned int pipeVAO) 
-			: GAME_SPEED(0.0008){
+			: GAME_SPEED(0.4){
 			
 			this->bgShader.SetID(bgShaderID);
 			this->birdShader.SetID(birdShaderID);
@@ -253,6 +251,8 @@ class Game {
 			this->birdVAO = birdVAO;
 			this->bgVAO = bgVAO;
 			this->pipeVAO = pipeVAO;
+			this->menuFont = *(new TextRenderer("fonts/peligroso.otf", "shaders/text.vs", "shaders/text.fs", 0, 48));
+			this->novaFont = *(new TextRenderer("fonts/nova.otf", "shaders/text.vs", "shaders/text.fs", 0, 48));
 		}
 
 		void init() {
@@ -269,7 +269,9 @@ class Game {
 			enterPressed = false;
 		}
 
-		void run() {
+		void run(float deltaTime) {
+			//TODO - Rendering is not smooth when actual deltaTime is used
+			this->deltaTime = 0.002;
 			if (curGameState == MENU) {
 				if (enterPressed == false) {
 					showMenu();
