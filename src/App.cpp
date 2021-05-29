@@ -24,14 +24,6 @@ void processInput(GLFWwindow* window, int key, int scancode, int action, int mod
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 unsigned int loadTexture(const char* fp);
-void play(Shader& bgShader, Shader& birdShader, Shader& pipeShader,
-    glm::vec3& birdCurPos, glm::vec3& bgCurPos, std::vector<glm::vec3>& pipeCurPos,
-    unsigned int& birdTexture, unsigned int& bgTexture, unsigned int& pipeTexture,
-    unsigned int& birdVAO, unsigned int& bgVAO, unsigned int& pipeVAO);
-void gameOver(Shader& bgShader, Shader& birdShader, 
-    unsigned int& birdTexture, unsigned int& bgTexture, unsigned int& birdVAO, unsigned int& bgVAO);
-unsigned int getVAO(float positions[], unsigned int  indices[]);
-void generatePipes(Shader& pipeShader, std::vector<glm::vec3>& pipeCurPos, unsigned int& pipeTexture, unsigned int& pipeVAO);
 
 float current_opacity = 0.0;
 float deltaTime = 0.0f;	// Time between current frame and last frame
@@ -62,7 +54,7 @@ int main(){
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", glfwGetPrimaryMonitor(), NULL);
     if (window == NULL){
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -91,16 +83,20 @@ int main(){
     Shader bgShader("shaders/bg.vs", "shaders/bg.fs");
     Shader pipeShader("shaders/pipe.vs", "shaders/pipe.fs");
 
-    // removes mouse cursor
-    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    //removes mouse cursor
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     stbi_set_flip_vertically_on_load(true);
 
     // texture setup
     unsigned int birdTexture = loadTexture("images/flappy.png");
-    unsigned int bgTexture = loadTexture("images/city-bg_resized2.png");
+    unsigned int bgTexture = loadTexture("images/city-bg-long.png");
     unsigned int bg_koTexture = loadTexture("images/city-bg_bw.png");
+    unsigned int menuBgTexture = loadTexture("images/menu-bg.jpg");
     unsigned int bird_koTexture = loadTexture("images/flappy_ko.png");
+    unsigned int bird_45Texture = loadTexture("images/flappy_45.png");
+    unsigned int bird_45DownTexture = loadTexture("images/flappy_45-.png");
+    unsigned int bird_DownTexture = loadTexture("images/flappy_down.png");
     unsigned int pipeTexture = loadTexture("images/pipe.png");
 
     // set uniform values
@@ -144,12 +140,14 @@ int main(){
     Vao bgVAO(bgVertices, quadIndices, sizeof(bgVertices), sizeof(quadIndices));
     Vao pipeVAO(pipeVertices, quadIndices, sizeof(pipeVertices), sizeof(quadIndices));
     
-    Game game(birdShader.ID, bgShader.ID, pipeShader.ID, birdTexture, bird_koTexture, bgTexture, bg_koTexture, pipeTexture, birdVAO.VAO, bgVAO.VAO, pipeVAO.VAO);
+    Game game(birdShader.ID, bgShader.ID, pipeShader.ID, 
+                birdTexture, bird_koTexture, bird_45DownTexture, bird_DownTexture, 
+                bgTexture, bg_koTexture, menuBgTexture, pipeTexture, 
+                birdVAO.VAO, bgVAO.VAO, pipeVAO.VAO);
     game.init();
 
-    TextRenderer textRenderer("fonts/blocks.ttf", 0, 48);
-
     glfwSetWindowUserPointer(window, &game);
+
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window)){
@@ -164,6 +162,7 @@ int main(){
 
         game.run();
 
+        TextRenderer textRenderer("fonts/blocks.ttf", "shaders/text.vs", "shaders/text.fs", 0, 48);
         textRenderer.RenderText("Score: " + std::to_string(game.getScore()), 25.0f, 1000.0f, 1.0f, glm::vec3(0.8, 0.2f, 0.4f));
 
         glfwSwapBuffers(window);
@@ -182,24 +181,40 @@ int main(){
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window, int key, int scancode, int action, int mods){
     float cameraSpeed = 10.0f * deltaTime;
+    Game* game = static_cast<Game*>(glfwGetWindowUserPointer(window));
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     else if (key == GLFW_KEY_SPACE && action != GLFW_RELEASE) {
-        Game* game = static_cast<Game*>(glfwGetWindowUserPointer(window));
+        game->fallPoint = game->birdCurPos.y;
         game->flyUpCount += 25;
         if (game->curGameState == GAME_OVER) {
             game->init();
             game->curGameState = PLAYING;
         }
     }
-    else if (key == GLFW_KEY_W && action != GLFW_RELEASE)
-        camera.ProcessKeyboard(FORWARD, deltaTime);
-    else if (key == GLFW_KEY_S && action != GLFW_RELEASE)
-        camera.ProcessKeyboard(BACKWARD, deltaTime);
-    else if (key == GLFW_KEY_A && action != GLFW_RELEASE)
-        camera.ProcessKeyboard(LEFT, deltaTime);
-    else if (key == GLFW_KEY_D && action != GLFW_RELEASE)
-        camera.ProcessKeyboard(RIGHT, deltaTime);
+    else if (key == GLFW_KEY_RIGHT && action != GLFW_RELEASE) {
+        if (game->curGameState == MENU) {
+            game->curOption = std::min(3, (int)(game->curOption + 1));
+        }
+    }
+    else if (key == GLFW_KEY_LEFT && action != GLFW_RELEASE) {
+        if (game->curGameState == MENU) {
+            game->curOption = std::max(1, (int)(game->curOption - 1));
+        }
+    }
+    else if (key == GLFW_KEY_ENTER && action != GLFW_RELEASE) {
+        if (game->curGameState == MENU) {
+            if (game->enterPressed == true and game->curOption == 2) {
+                game->enterPressed = false;
+                game->curOption = 2;
+                return;
+            }
+            game->enterPressed = true;
+            if (game->curOption == 3) {
+                glfwSetWindowShouldClose(window, true);
+            }
+        }
+    }
 }
 
 
@@ -260,118 +275,4 @@ unsigned int loadTexture(char const* path) {
     }
 
     return textureID;
-}
-
-void play(Shader &bgShader, Shader &birdShader, Shader& pipeShader, 
-            glm::vec3 &birdCurPos, glm::vec3 &bgCurPos, std::vector<glm::vec3>& pipeCurPos,
-            unsigned int &birdTexture, unsigned int &bgTexture, unsigned int& pipeTexture, 
-            unsigned int &birdVAO, unsigned int &bgVAO, unsigned int& pipeVAO) {
-    if (flyUp == 0) {
-        birdCurPos.y = glm::max((float)(birdCurPos.y - 0.005), -0.77f);
-    }
-    else {
-        birdCurPos.y = glm::min((float)(birdCurPos.y + 0.01), 0.9f);
-        flyUp--;
-        if (birdCurPos.y == 0.9f)
-            flyUp = 0;
-    }
-
-    if (bgCurPos.x <= -4.0f) {
-        bgCurPos.x = 0.0f;
-    }
-
-    // BG
-    bgShader.use();
-
-    bgCurPos.x -= GAME_SPEED;
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, bgCurPos);
-    bgShader.setMat4("model", model);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, bgTexture);
-    glBindVertexArray(bgVAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-    glm::vec3 bgScrollPos = bgCurPos;
-    bgScrollPos.x = bgCurPos.x + 4.0f;
-    model = glm::translate(glm::mat4(1.0f), bgScrollPos);
-    bgShader.setMat4("model", model);
-
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-    // Bird
-    birdShader.use();
-    //birdCurPos.y = 0.1f;
-    model = glm::mat4(1.0f);
-    model = glm::translate(model, birdCurPos);
-    birdShader.setMat4("model", model);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, birdTexture);
-    glBindVertexArray(birdVAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-    // Pipes
-    generatePipes(pipeShader, pipeCurPos, pipeTexture, pipeVAO);
-}
-
-void gameOver(Shader& bgShader, Shader& birdShader,
-    unsigned int& birdTexture, unsigned int& bgTexture, unsigned int &birdVAO, unsigned int& bgVAO) {
-    bgShader.use();
-
-    glm::mat4 model = glm::mat4(1.0f);
-    bgShader.setMat4("model", model);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, bgTexture);
-    glBindVertexArray(bgVAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-    // Bird
-    birdShader.use();
-
-    model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(0.0f, -0.77f, 1.0f));;
-    birdShader.setMat4("model", model);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, birdTexture);
-    glBindVertexArray(birdVAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-}
-
-void generatePipes(Shader& pipeShader, std::vector<glm::vec3>& pipeCurPos, unsigned int& pipeTexture, unsigned int & pipeVAO) {
-    for (auto& curPos : pipeCurPos) {
-        if (curPos.x <= -2.5f)
-            curPos.x = 1.5f;
-
-        pipeShader.use(); 
-
-        if (curPos.x >= 1.5f and curPos.x <= 1.55f) {
-           curPos.y = (rand() % 50 + 50) / 100.0f;
-        }
-        curPos.x -= GAME_SPEED;
-        
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(curPos.x, -curPos.y, 0.0f));
-        pipeShader.setMat4("model", model);
-
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, pipeTexture);
-        glBindVertexArray(pipeVAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-        model = glm::mat4(1.0f);
-        model = glm::scale(model, glm::vec3(1.0f, -1.0f, 1.0f));
-        model = glm::translate(model, glm::vec3(curPos.x, -1.5f + curPos.y, 0.0f));
-        pipeShader.setMat4("model", model);
-
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-    }
-           
-}
-
-bool checkCollision() {
-    return false;
 }

@@ -23,8 +23,6 @@ struct Character {
     unsigned int Advance;  
 };
 
-std::map<char, Character> Characters;
-unsigned int VAO, VBO;
 const unsigned int SCR_WIDTH = 1920;
 const unsigned int SCR_HEIGHT = 1080;
 
@@ -32,9 +30,11 @@ class TextRenderer {
     FT_Library ft;
     FT_Face face;
     Shader shader;
+    std::map<char, Character> Characters;
+    unsigned int VAO, VBO;
 
 	public:
-        TextRenderer(std::string fontPath, int fontHeight, int fontWidth = 0) {
+        TextRenderer(std::string fontPath, std::string vertexShader, std::string fragmentShader, int fontHeight, int fontWidth = 0) {
             
             if (FT_Init_FreeType(&ft)) {
                 std::cout << "ERROR::FREETYPE: Could not init FreeType Library" << std::endl;
@@ -48,7 +48,7 @@ class TextRenderer {
 
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             
-            shader = *(new Shader("shaders/text.vs", "shaders/text.fs"));
+            shader = *(new Shader(vertexShader.c_str(), fragmentShader.c_str()));
             glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
             shader.use();
             glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
